@@ -1,0 +1,23 @@
+{
+  "name": "repo-make",
+  "version": "1.0.0",
+  "description": "Make GitHub repositories straight from the command line.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "github",
+    "repository",
+    "git",
+    "api"
+  ],
+  "author": "Ben Fawcett",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "inquirer": "^7.1.0",
+    "node-fetch": "^2.6.0",
+    "opn": "^6.0.0"
+  }
+}
