@@ -10,14 +10,6 @@ const crypto = require("crypto");
 
 const configDir = path.join(process.argv[1], "..", "..", "config");
 const savedTokens = path.join(configDir, "token.json");
-console.log(configDir);
-
-console.log(process.argv);
-console.log("__dirname: " + __dirname);
-console.log("process.cwd()" + process.cwd());
-console.log("__filename" + __filename);
-
-
 
 let repositoryToMake = {};
 
@@ -43,15 +35,11 @@ const getToken = () => {
         const serverListener = app.listen(PORT, (err) => {
             if (err) return console.log(err);
 
-            console.log(`Server running on port ${PORT}`);
-
-
             opn(`https://github.com/login/oauth/authorize?client_id=4f91be4bf76de7d2ee02&state=${statetoSend}&scope=repo,user`);
 
         });
 
         app.get("/auth", (req, res) => {
-            console.log(req.query);
 
             //If sent state doesn't match received state token then abort
             if (statetoSend != req.query.state) {
@@ -71,7 +59,6 @@ const getToken = () => {
                     if (gitHubJson.error) {
                         rej("Could not auth with GitHub\n" + gitHubJson.error);
                     } else {
-                        console.log(gitHubJson);
                         resolve(gitHubJson.access_token);
                     }
                     serverListener.close();
@@ -101,7 +88,6 @@ const getToken = () => {
                 validate: (ans) => { return true }//Filter Fn
             }
         ]).then((ans) => {
-            console.log(ans);
             repositoryToMake.name = ans.repoNamePrompt;
         });
     }
@@ -127,6 +113,7 @@ const getToken = () => {
     })
 }).then((tokenJson) => {
 
+    tokenJson = tokenJson?tokenJson:[];
     //If there were tokens in local storage
     if (tokenJson.length) {
 
@@ -153,20 +140,16 @@ const getToken = () => {
         return inquirer.prompt(question).then(ans => {
             if (ans.token) {
                 // createRepository(ans.token)
-                console.log(ans.token);
                 return ans.token
             } else {
                 return getToken()
             }
         })
     } else {
-
-        console.log("GenToken");
         return getToken()
     }
 })
     .then(token => {
-        console.log(token);
 
         //Test token by getting user info
         return fetch("https://api.github.com/user", {
@@ -196,9 +179,9 @@ const getToken = () => {
             fs.readFile(savedTokens, 'utf-8', (err, data) => {
                 if (err) return
 
-                const currentData = JSON.parse(data);
+                let currentData = JSON.parse(data);
 
-                const newData = JSON.stringify(currentData.filter((val) => val.token != loginObj.token));
+                let newData = JSON.stringify(currentData.filter((val) => val.token != loginObj.token));
 
                 fs.writeFile(savedTokens, newData, 'utf-8', (err) => {
                     if (err) return
@@ -232,8 +215,6 @@ const getToken = () => {
 
         const url = `https://api.github.com/user/repos`;
 
-        console.log(url);
-
 
         fetch(url, {
             method: "POST",
@@ -255,6 +236,8 @@ const getToken = () => {
 
             return new Promise((res, rej) => {
                 fs.readFile(savedTokens, 'utf-8', (err, data) => {
+                    if(err) res();
+
                     if (JSON.parse(data).some((val) => val.token === loginObj.token)) {
                         res(true);
                     } else {
@@ -270,17 +253,19 @@ const getToken = () => {
                             name: "save"
                         }).then(ans => {
                             if (ans.save) {
+
                                 fs.readFile(savedTokens, 'utf-8', (err, data) => {
                                     if (err) throw new Error("Couldn't read file.")
 
-                                    const currentData = JSON.parse(data);
-
-                                    const newData = JSON.stringify(currentData.push(loginObj));
+                                    let currentData = JSON.parse(data);
+                                    currentData = currentData?currentData:[];
+                                    currentData.push(loginObj);
+                                    let newData = JSON.stringify(currentData);
 
                                     fs.writeFile(savedTokens, newData, 'utf-8', (err) => {
                                         if (err) throw new Error("Couldn't write to file");
 
-                                        console.log("Sucessfully wrote token to file.")
+                                        console.log("\nSucessfully wrote token to file.")
                                     });
 
                                 })
