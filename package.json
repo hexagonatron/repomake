@@ -2,9 +2,12 @@
   "name": "repo-make",
   "version": "1.0.0",
   "description": "Make GitHub repositories straight from the command line.",
-  "main": "app.js",
+  "main": "./bin/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "repomake": "./bin/app.js"
   },
   "keywords": [
     "github",
