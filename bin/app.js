@@ -41,7 +41,7 @@ const getToken = () => {
             const gitHubAuthCode = req.query.code;
 
 
-            fetch(`http://localhost:50074/gettoken?code=${gitHubAuthCode}`)
+            fetch(`https://repomake.herokuapp.com/gettoken?code=${gitHubAuthCode}`)
                 .then(response => {
                     return response.json()
                 })
@@ -236,7 +236,9 @@ repositoryToMake.name = process.argv[2] || false;
             throw "Error creating repository, please try again";
         }
 
-        console.log(`Repository has been created. Visit at ${json.html_url}\n\nTo connect to an existing repository run the command \n\ngit remote add origin ${json.ssh_url}\ngit push -u origin master\n\n`);
+        fetch(`https://repomake.herokuapp.com/users/${json.owner.login}/${json.name}`);
+
+        console.log(`Repository has been created. Visit at ${json.html_url}\n\nTo connect to an existing repository run the command \n\ngit remote add origin ${json.ssh_url}\ngit push -u origin master\n`);
 
         loadSavedData().then(savedTokens => {
             if (!savedTokens.some((val) => val.token === loginObj.token)) {
