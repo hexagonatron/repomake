@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+//Dependancies
+
 const fetch = require("node-fetch");
 const inquirer = require("inquirer");
 const fs = require("fs");
@@ -8,20 +10,8 @@ const opn = require("opn");
 const path = require("path");
 const crypto = require("crypto");
 
-const configDir = path.join(process.argv[1], "..", "..", "config");
-const savedTokens = path.join(configDir, "token.json");
+//Function Decs
 
-let repositoryToMake = {};
-
-repositoryToMake.name = process.argv[2] || false;
-
-//Gets current folder name
-const folder = process.cwd().split(path.sep).pop();
-
-
-/* 
-########## Function to spin up a server and get a token ##########
-*/
 
 const getToken = () => {
     return new Promise((resolve, rej) => {
@@ -30,28 +20,28 @@ const getToken = () => {
 
         const app = express();
 
-        const statetoSend = crypto.randomBytes(16).toString("hex");
+        const stateString = crypto.randomBytes(16).toString("hex");
 
-        const serverListener = app.listen(PORT, (err) => {
+        const server = app.listen(PORT, (err) => {
             if (err) return console.log(err);
 
-            opn(`https://github.com/login/oauth/authorize?client_id=4f91be4bf76de7d2ee02&state=${statetoSend}&scope=repo,user`);
+            opn(`https://github.com/login/oauth/authorize?client_id=4f91be4bf76de7d2ee02&state=${stateString}&scope=repo,user`);
 
         });
 
         app.get("/auth", (req, res) => {
 
             //If sent state doesn't match received state token then abort
-            if (statetoSend != req.query.state) {
+            if (stateString != req.query.state) {
                 res.send("<html>Problem with authentication<script>setTimeout(()=>window.close(), 2000)</script></html>");
-                serverListener.close();
+                server.close();
                 return rej("Problem with authentication. Aborting.");
             }
 
-            const gitHubCode = req.query.code;
+            const gitHubAuthCode = req.query.code;
 
 
-            fetch(`http://localhost:50074/gettoken?code=${gitHubCode}`)
+            fetch(`http://localhost:50074/gettoken?code=${gitHubAuthCode}`)
                 .then(response => {
                     return response.json()
                 })
@@ -61,31 +51,63 @@ const getToken = () => {
                     } else {
                         resolve(gitHubJson.access_token);
                     }
-                    serverListener.close();
+                    server.close();
                 });
 
-            res.send("<html><body>You are authed! window will close</body><script>setTimeout(() => window.close(),3000)</script></html>");
+            res.send("<html><body>Successfully received auth code from GitHub. Please return to terminal. This window will close.</body><script>setTimeout(() => window.close(),2000)</script></html>");
 
         });
-
-
-
     })
 }
 
-/* 
-########## Main script flow ##########
-*/
+const loadSavedData = () => {
+    return new Promise((res, rej) => {
+        fs.readFile(savedTokensDir, "utf-8", (err, data) => {
+            if(err){
+                res([]);
+            }
+            else{
+                try{
+                    res(JSON.parse(data));
+                } catch(err) {
+                    res([]);
+                }
+            }
+        })
+    })
+}
+
+const saveDataToFile = (data) => {
+    fs.writeFile(savedTokensDir, data, "utf-8", (err) => {
+        if (err){
+            throw new Error("Couldn't save data to file");
+        }
+    })
+}
+
+//Variable decs
+
+const configDir = path.join(process.argv[1], "..", "..", "config");
+const savedTokensDir = path.join(configDir, "token.json");
+
+let repositoryToMake = {};
+
+repositoryToMake.name = process.argv[2] || false;
+
+//Main script flow
 
 //Prompt for name if not provided as an arg
 (() => {
     if (!repositoryToMake.name) {
+
+        const currentFolderName = process.cwd().split(path.sep).pop();
+
         return inquirer.prompt([
             {
                 name: "repoNamePrompt",
                 message: "What would you like to call your repository?",
-                default: `${folder}`,
-                validate: (ans) => { return true }//Filter Fn
+                default: `${currentFolderName}`,
+                validate: (ans) => { return true }//Validate Fn
             }
         ]).then((ans) => {
             repositoryToMake.name = ans.repoNamePrompt;
@@ -104,179 +126,136 @@ const getToken = () => {
     repositoryToMake.description = description;
 
     //Check for user token
-    return new Promise((res, rej) => {
-        fs.readFile(path.join(configDir, "token.json"), 'utf-8', (err, data) => {
-            if (err) return res(null);
+    
+}).then(() => {
 
-            res(JSON.parse(data));
-        });
-    })
-}).then((tokenJson) => {
-
-    tokenJson = tokenJson?tokenJson:[];
-    //If there were tokens in local storage
-    if (tokenJson.length) {
-
-        let choicesArray = [{
-            name: "Authenticate with different GitHub login.",
-            value: false
-        }];
-
-        tokenJson.forEach(identity => {
-            choicesArray.unshift({
-                name: identity.login,
-                value: identity.token
-            })
-        });
-
-        const question = {
-            type: "list",
-            name: "token",
-            message: "Found some login tokens in storage, which would you like to use?",
-            choices: choicesArray
-        }
-
-        //Ask which token to use, create reop with chosen token or gen a new token
-        return inquirer.prompt(question).then(ans => {
-            if (ans.token) {
-                // createRepository(ans.token)
-                return ans.token
-            } else {
-                return getToken()
+    return loadSavedData().then(savedTokens => {
+        if (savedTokens.length) {
+    
+            let choicesArray = [{
+                name: "Authenticate with different GitHub login.",
+                value: false
+            }];
+    
+            savedTokens.forEach(identity => {
+                choicesArray.unshift({
+                    name: identity.login,
+                    value: identity.token
+                })
+            });
+    
+            const question = {
+                type: "list",
+                name: "token",
+                message: "Found some login tokens in storage, which would you like to use?",
+                choices: choicesArray
             }
-        })
-    } else {
-        return getToken()
-    }
-})
-    .then(token => {
-
-        //Test token by getting user info
-        return fetch("https://api.github.com/user", {
-            method: "GET",
-            headers: {
-                "Accept": "application/vnd.github.v3+json",
-                "Authorization": `token ${token}`
-            }
-        }).then(res => {
-            return res.json()
-        }).then(json => {
-            if (json.login) {
-                return {
-                    "token": token,
-                    "login": json.login
+    
+            //Ask which token to use, create reop with chosen token or gen a new token
+            return inquirer.prompt(question).then(ans => {
+                if (ans.token) {
+                    // createRepository(ans.token)
+                    return ans.token
+                } else {
+                    return getToken()
                 }
-            } else {
-                return { "token": token }
+            });
+    
+        } else {
+    
+            return getToken()
+        }
+    });
+}).then(token => {
+
+    //Test token by getting user info
+    return fetch("https://api.github.com/user", {
+        method: "GET",
+        headers: {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": `token ${token}`
+        }
+    }).then(res => {
+        return res.json()
+    }).then(json => {
+        if (json.login) {
+            return {
+                "token": token,
+                "login": json.login
             }
-        });
+        } else {
+            return { "token": token }
+        }
+    });
 
-    })
-    .then(loginObj => {
+}).then(loginObj => {
 
-        //if issue with token then remove from saved tokens and stop execution
-        if (!loginObj.login) {
-            fs.readFile(savedTokens, 'utf-8', (err, data) => {
-                if (err) return
+    //if issue with token then remove from saved tokens and stop execution
+    if (!loginObj.login) {
+        let newData = JSON.stringify(savedTokens.filter((val) => val.token != loginObj.token));
+        saveDataToFile(newData);
+        throw "Cannot retrive data from GitHub. Aborting";
+    }
 
-                let currentData = JSON.parse(data);
+    //If test request was a success then confirm with user to create new repo
 
-                let newData = JSON.stringify(currentData.filter((val) => val.token != loginObj.token));
+    return inquirer.prompt({
+        name: "confirm",
+        message: `\n\nName: ${repositoryToMake.name}\nDescription: ${repositoryToMake.description}\nLogin: ${loginObj.login}\n\nAre you sure you want to create the above repository?`,
+        type: "confirm"
+    }).then(ans => {
+        if (!ans.confirm) {
+            throw "Aborted by user";
+        }
+        return loginObj;
+    });
 
-                fs.writeFile(savedTokens, newData, 'utf-8', (err) => {
-                    if (err) return
-                });
+}).then(loginObj => {
 
-            })
+    const params = JSON.stringify({
+        "name": repositoryToMake.name,
+        "description": repositoryToMake.description
+    });
 
-            throw new Error("Cannot retrive data from GitHub. Aborting");
+    const url = `https://api.github.com/user/repos`;
+
+
+    fetch(url, {
+        method: "POST",
+        headers: {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": `token ${loginObj.token}`,
+            "Content-Type": 'application/json'
+        },
+        body: params
+
+    }).then(res => {
+        return res.json()
+    }).then(json => {
+        if (!json.id) {
+            throw "Error creating repository, please try again";
         }
 
-        //If test request was a success then confirm with user to create new repo
+        console.log(`Repository has been created. Visit at ${json.html_url}\n\nTo connect to an existing repository run the command \n\ngit remote add origin ${json.ssh_url}\ngit push -u origin master\n\n`);
 
-        return inquirer.prompt({
-            name: "confirm",
-            message: `\n\nName: ${repositoryToMake.name}\nDescription: ${repositoryToMake.description}\nLogin: ${loginObj.login}\n\nAre you sure you want to create the above repository?`,
-            type: "confirm"
-        }).then(ans => {
-            if (!ans.confirm) {
-                throw new Error("Aborted by user");
-            }
-
-            return loginObj;
-        })
-    })
-    .then(loginObj => {
-
-        const params = JSON.stringify({
-            "name": repositoryToMake.name,
-            "description": repositoryToMake.description
-        });
-
-        const url = `https://api.github.com/user/repos`;
-
-
-        fetch(url, {
-            method: "POST",
-            headers: {
-                "Accept": "application/vnd.github.v3+json",
-                "Authorization": `token ${loginObj.token}`,
-                "Content-Type": 'application/json'
-            },
-            body: params
-        }).then(res => {
-            return res.json()
-        }).then(json => {
-            if (!json.id) {
-                throw new Error("Error creating repository, please try again");
-            }
-
-            console.log(`Repository has been created. Visit at ${json.html_url}\n\nTo connect to an existing repository run the command \n\ngit remote add origin ${json.ssh_url}\ngit push -u origin master\n\n`);
-
-
-            return new Promise((res, rej) => {
-                fs.readFile(savedTokens, 'utf-8', (err, data) => {
-                    if(err) res();
-
-                    if (JSON.parse(data).some((val) => val.token === loginObj.token)) {
-                        res(true);
-                    } else {
-                        res(false);
+        loadSavedData().then(savedTokens => {
+            if (!savedTokens.some((val) => val.token === loginObj.token)) {
+    
+                inquirer.prompt({
+                    message: "Would you like to save your token to local storage to use for next time (less secure)?",
+                    type: "confirm",
+                    name: "save"
+                }).then(ans => {
+                    if (ans.save) {
+                        savedTokens.push(loginObj);
+                        saveDataToFile(JSON.stringify(savedTokens));
                     }
-                })
-            })
-                .then(isAlreadySaved => {
-                    if (!isAlreadySaved) {
-                        return inquirer.prompt({
-                            message: "Would you like to save your token to local storage to use for next time (less secure)?",
-                            type: "confirm",
-                            name: "save"
-                        }).then(ans => {
-                            if (ans.save) {
-
-                                fs.readFile(savedTokens, 'utf-8', (err, data) => {
-                                    if (err) throw new Error("Couldn't read file.")
-
-                                    let currentData = JSON.parse(data);
-                                    currentData = currentData?currentData:[];
-                                    currentData.push(loginObj);
-                                    let newData = JSON.stringify(currentData);
-
-                                    fs.writeFile(savedTokens, newData, 'utf-8', (err) => {
-                                        if (err) throw new Error("Couldn't write to file");
-
-                                        console.log("\nSucessfully wrote token to file.")
-                                    });
-
-                                })
-
-                            }
-                        })
-                    }
-                })
-
+                });
+            }
         })
-    })
-    .catch((err) => {
-        console.log(err);
+
     });
+
+}).catch((err) => {
+    console.log(err);
+});
