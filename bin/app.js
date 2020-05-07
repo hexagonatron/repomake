@@ -10,8 +10,30 @@ const opn = require("opn");
 const path = require("path");
 const crypto = require("crypto");
 
-//Function Decs
+const argv = require("yargs")
+.option("t", {
+    alias: "token",
+    describe: "Supply your own github personal access token with the user and repo permissions",
+    type: "string"
+})
+.option("n", {
+    alias: "name",
+    describe: "Sets the name of the repo to create",
+    type: "string",
+    nargs: 1
+})
+.option("d", {
+    alias: "delete",
+    describe: "Deletes all saved tokens",
+})
+.option("q", {
+    alias: "quick",
+    describe: "Creates a repo without prompting for questions. Uses last saved auth token"
+}).argv;
 
+console.log(argv);
+
+//Function Decs
 
 const getToken = () => {
     return new Promise((resolve, rej) => {
@@ -85,6 +107,10 @@ const saveDataToFile = (data) => {
     })
 }
 
+const checkForName = () => {
+repositoryToMake.name = argv.name? argv.name: false;
+}
+
 //Variable decs
 
 const configDir = path.join(process.argv[1], "..", "..", "config");
@@ -92,27 +118,33 @@ const savedTokensDir = path.join(configDir, "token.json");
 
 let repositoryToMake = {};
 
-repositoryToMake.name = process.argv[2] || false;
-
 //Main script flow
 
+
 //Prompt for name if not provided as an arg
-(() => {
-    if (!repositoryToMake.name) {
 
-        const currentFolderName = process.cwd().split(path.sep).pop();
-
-        return inquirer.prompt([
-            {
-                name: "repoNamePrompt",
-                message: "What would you like to call your repository?",
-                default: `${currentFolderName}`,
-                validate: (ans) => { return true }//Validate Fn
-            }
-        ]).then((ans) => {
-            repositoryToMake.name = ans.repoNamePrompt;
-        });
-    }
+( _ => {
+    return new Promise((res, rej) => {
+        //if user hasn't passed in a name then prompt for one
+        if (!repositoryToMake.name){
+            
+            const currentFolderName = process.cwd().split(path.sep).pop();
+        
+            return inquirer.prompt([
+                {
+                    name: "repoNamePrompt",
+                    message: "What would you like to call your repository?",
+                    default: `${currentFolderName}`,
+                    validate: (ans) => { return true }//Validate Fn
+                }
+            ]).then((ans) => {
+                repositoryToMake.name = ans.repoNamePrompt;
+                res();
+            });
+        } else {
+            res();
+        }
+    });
 })().then(() => {
     //Prompt for repo desc
     return inquirer.prompt(
@@ -235,8 +267,6 @@ repositoryToMake.name = process.argv[2] || false;
         if (!json.id) {
             throw "Error creating repository, please try again";
         }
-
-        fetch(`https://repomake.herokuapp.com/users/${json.owner.login}/${json.name}`);
 
         console.log(`Repository has been created. Visit at ${json.html_url}\n\nTo connect to an existing repository run the command \n\ngit remote add origin ${json.ssh_url}\ngit push -u origin master\n`);
 
