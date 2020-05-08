@@ -10,7 +10,7 @@ This tool improves your workflow by allowing you to initialise new repositories 
 
 Clone the repository:
 ````bash
-git clone https://github.com/hexagonatron/repomake.git .
+git clone https://github.com/hexagonatron/repomake.git
 ````
 
 Install globally as an npm package:
