@@ -16,6 +16,7 @@ git clone https://github.com/hexagonatron/repomake.git
 Navigate to directory, install all dependancies then install globally as an npm package:
 ````bash
 cd repomake
+npm install
 npm install -g .
 ````
 
