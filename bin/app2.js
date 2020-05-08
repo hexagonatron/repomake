@@ -14,13 +14,15 @@ const argv = require("yargs")
 .option("t", {
     alias: "token",
     describe: "Supply your own github personal access token with the user and repo permissions",
-    type: "string"
+    type: "string",
+    requiresArg: true
 })
 .option("n", {
     alias: "name",
     describe: "Sets the name of the repo to create",
     type: "string",
-    nargs: 1
+    nargs: 1,
+    requiresArg: true
 })
 .option("d", {
     alias: "delete",
@@ -28,8 +30,10 @@ const argv = require("yargs")
 })
 .option("q", {
     alias: "quick",
-    describe: "Creates a repo without prompting for questions. Uses last saved auth token"
+    describe: "Creates a repo without prompting for questions. Gets repository name from package.json file or folder name. Uses last saved auth token"
 }).argv;
+
+console.log(argv);
 
 //Functions
 
@@ -81,7 +85,7 @@ const getName = async () => {
     }
 }
 
-//Gets the package name from package.json if it exists
+//Reads package.json for a supplied key if it exists
 const getPackageInfo = async (key) => {
     const packageJsonPath = path.join(process.cwd(), "package.json");
     return new Promise ((res, rej) => {
@@ -126,6 +130,11 @@ const getDescription = async () => {
 }
 
 const getAuthToken = async () => {
+
+    if(argv.t){
+        return argv.t;
+    }
+
     const savedTokens = await loadSavedData();
 
     if (savedTokens.length) {
@@ -134,17 +143,19 @@ const getAuthToken = async () => {
             return savedTokens[0].token;
         }
     
-        let choicesArray = [{
-            name: "Authenticate with different GitHub login.",
-            value: false
-        }];
-
+        let choicesArray = [];
+        
         savedTokens.forEach(identity => {
-            choicesArray.unshift({
+            choicesArray.push({
                 name: identity.login,
                 value: identity.token
             })
         });
+
+        choicesArray.push({
+            name: "Authenticate with different GitHub login.",
+            value: false
+        })
 
         const question = {
             type: "list",
@@ -156,6 +167,7 @@ const getAuthToken = async () => {
         //Ask which token to use, create reop with chosen token or gen a new token
         return inquirer.prompt(question).then( async ans => {
             if (ans.token) {
+                swapSavedOrder(ans.token, savedTokens);
                 return ans.token
             } else {
                 return await getNewToken()
@@ -338,19 +350,49 @@ const askToSaveToken = async (token, login) => {
     }
 }
 
-const saveDataToFile = (data) => {
-    const configDir = path.join(process.argv[1], "..", "..", "config");
-    const savedTokensDir = path.join(configDir, "token.json");
-
-    fs.writeFile(savedTokensDir, data, "utf-8", (err) => {
-        if (err){
-            throw "Couldn't save data to file";
+const swapSavedOrder = (token, savedTokens) => {
+    savedTokens.forEach((identity, i) => {
+        if(token === identity.token){
+            if (i != 0){
+                const temp = savedTokens[0];
+                savedTokens[0] = savedTokens[i];
+                savedTokens[i] = temp;
+            }
         }
+    });
+
+    saveDataToFile(JSON.stringify(savedTokens));
+}
+
+const saveDataToFile = (data) => {
+    return new Promise((res, rej) => {
+
+        const configDir = path.join(process.argv[1], "..", "..", "config");
+        const savedTokensDir = path.join(configDir, "token.json");
+    
+        fs.writeFile(savedTokensDir, data, "utf-8", (err) => {
+            if (err){
+                rej("Couldn't save data to file");
+            }
+            res(true);
+        })
     })
 }
 
-try{
-    mainScript();
-} catch (err) {
-    console.log(err);
+const clearSavedTokens = async () => {
+    await saveDataToFile("[]");
+    console.log("Saved tokens have been deleted");
+}
+
+
+if(argv.d){
+    clearSavedTokens();
+} else {
+
+    try{
+        mainScript();
+    } catch (err) {
+        console.log(err);
+    }
+
 }
