@@ -33,8 +33,6 @@ const argv = require("yargs")
     describe: "Creates a repo without prompting for questions. Gets repository name from package.json file or folder name. Uses last saved auth token"
 }).argv;
 
-console.log(argv);
-
 //Functions
 
 const mainScript = async () => {
