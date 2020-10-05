@@ -10,13 +10,14 @@ This tool improves your workflow by allowing you to initialise new repositories 
 
 Clone the repository:
 ````bash
-git clone https://github.com/hexagonatron/repomake.git .
+git clone https://github.com/hexagonatron/repomake.git
 ````
 
-Install globally as an npm package:
+Navigate to directory, install all dependancies then install globally as an npm package:
 ````bash
 cd repomake
-install -g .
+npm install
+npm install -g .
 ````
 
 ## Usage
@@ -76,6 +77,7 @@ repomake -t YOUR_TOKEN
 - More descriptive error messages
 - Automatically add remote to local .git configuration
 - Undo option to delete last repo created
+- Publish on npm?
 
 ## Contributing
 
