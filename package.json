@@ -20,7 +20,7 @@
   "dependencies": {
     "express": "^4.17.1",
     "inquirer": "^7.1.0",
-    "node-fetch": "^2.6.0",
+    "node-fetch": "^2.6.1",
     "opn": "^6.0.0",
     "yargs": "^15.3.1"
   }
