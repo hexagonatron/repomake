@@ -11,27 +11,27 @@ const crypto = require("crypto");
 
 //Command line args/options
 const argv = require("yargs")
-.option("t", {
-    alias: "token",
-    describe: "Supply your own github personal access token with the user and repo permissions",
-    type: "string",
-    requiresArg: true
-})
-.option("n", {
-    alias: "name",
-    describe: "Sets the name of the repo to create",
-    type: "string",
-    nargs: 1,
-    requiresArg: true
-})
-.option("d", {
-    alias: "delete",
-    describe: "Deletes all saved tokens",
-})
-.option("q", {
-    alias: "quick",
-    describe: "Creates a repo without prompting for questions. Gets repository name from package.json file or folder name. Uses last saved auth token"
-}).argv;
+    .option("t", {
+        alias: "token",
+        describe: "Supply your own github personal access token with the user and repo permissions",
+        type: "string",
+        requiresArg: true
+    })
+    .option("n", {
+        alias: "name",
+        describe: "Sets the name of the repo to create",
+        type: "string",
+        nargs: 1,
+        requiresArg: true
+    })
+    .option("d", {
+        alias: "delete",
+        describe: "Deletes all saved tokens",
+    })
+    .option("q", {
+        alias: "quick",
+        describe: "Creates a repo without prompting for questions. Gets repository name from package.json file or folder name. Uses last saved auth token"
+    }).argv;
 
 //Functions
 
@@ -47,7 +47,7 @@ const mainScript = async () => {
     //returns false if token doesn't work
     const tokenLogin = await testToken(authToken);
 
-    if(tokenLogin){
+    if (tokenLogin) {
         await makeRepo(authToken, tokenLogin, repoToMake);
     } else {
         removeFromSaved(authToken);
@@ -58,15 +58,15 @@ const mainScript = async () => {
 }
 
 const getName = async () => {
-    if(argv.name){
+    if (argv.name) {
         return argv.name
     } else {
         let defaultName = await getPackageInfo("name");
-        if(!defaultName){
+        if (!defaultName) {
             defaultName = getFolderName();
         }
 
-        if(argv.quick){
+        if (argv.quick) {
             return defaultName;
         }
 
@@ -77,7 +77,7 @@ const getName = async () => {
                 default: `${defaultName}`,
                 validate: (ans) => { return true }//Validate Fn
             }
-        ]).then(({repoNamePrompt}) => {
+        ]).then(({ repoNamePrompt }) => {
             return repoNamePrompt
         });
     }
@@ -86,12 +86,12 @@ const getName = async () => {
 //Reads package.json for a supplied key if it exists
 const getPackageInfo = async (key) => {
     const packageJsonPath = path.join(process.cwd(), "package.json");
-    return new Promise ((res, rej) => {
+    return new Promise((res, rej) => {
         fs.exists(packageJsonPath, (exists) => {
-            if(exists){
+            if (exists) {
                 fs.readFile(packageJsonPath, "utf-8", (err, data) => {
-                    if(err) res(false);
-                    try{
+                    if (err) res(false);
+                    try {
                         const packageJson = JSON.parse(data);
                         res(packageJson[key]);
                     } catch (err) {
@@ -109,17 +109,17 @@ const getFolderName = () => process.cwd().split(path.sep).pop();
 
 const getDescription = async () => {
     const defaultDesc = await getPackageInfo("description");
-    if(argv.quick){
-        return (defaultDesc && !(defaultDesc == "undefined") )? defaultDesc: "";
+    if (argv.quick) {
+        return (defaultDesc && !(defaultDesc == "undefined")) ? defaultDesc : "";
     }
 
-    if(!defaultDesc || defaultDesc == "undefined"){
+    if (!defaultDesc || defaultDesc == "undefined") {
         return inquirer.prompt(
             {
                 name: "description",
                 message: "Please enter a description for your repository:"
             }
-        ).then(({description}) => {
+        ).then(({ description }) => {
             return description;
         });
     } else {
@@ -129,7 +129,7 @@ const getDescription = async () => {
 
 const getAuthToken = async () => {
 
-    if(argv.t){
+    if (argv.t) {
         return argv.t;
     }
 
@@ -137,12 +137,12 @@ const getAuthToken = async () => {
 
     if (savedTokens.length) {
 
-        if(argv.quick){
+        if (argv.quick) {
             return savedTokens[0].token;
         }
-    
+
         let choicesArray = [];
-        
+
         savedTokens.forEach(identity => {
             choicesArray.push({
                 name: identity.login,
@@ -163,7 +163,7 @@ const getAuthToken = async () => {
         }
 
         //Ask which token to use, create reop with chosen token or gen a new token
-        return inquirer.prompt(question).then( async ans => {
+        return inquirer.prompt(question).then(async ans => {
             if (ans.token) {
                 swapSavedOrder(ans.token, savedTokens);
                 return ans.token
@@ -182,13 +182,13 @@ const loadSavedData = async () => {
 
     return new Promise((res, rej) => {
         fs.readFile(savedTokensDir, "utf-8", (err, data) => {
-            if(err){
+            if (err) {
                 res([]);
             }
-            else{
-                try{
+            else {
+                try {
                     res(JSON.parse(data));
-                } catch(err) {
+                } catch (err) {
                     res([]);
                 }
             }
@@ -245,7 +245,7 @@ const getNewToken = async () => {
 
 const testToken = async (token) => {
 
-    if(argv.quick){
+    if (argv.quick) {
         return true
     }
 
@@ -268,8 +268,8 @@ const testToken = async (token) => {
 }
 
 const makeRepo = async (token, login, repo) => {
-    
-    if(argv.quick){
+
+    if (argv.quick) {
         return await sendRepoToGithub(token, repo);
     }
 
@@ -281,7 +281,7 @@ const makeRepo = async (token, login, repo) => {
         if (!ans.confirm) {
             throw "Aborted by user";
         }
-        
+
         return await sendRepoToGithub(token, repo);
     }).catch((err) => {
         console.log(err)
@@ -322,14 +322,14 @@ const sendRepoToGithub = async (token, repo) => {
 
 const askToSaveToken = async (token, login) => {
 
-    if(argv.quick) {
+    if (argv.quick) {
         return
     }
 
     const savedTokens = await loadSavedData();
 
     if (!savedTokens.some((val) => val.token === token)) {
-    
+
         return inquirer.prompt({
             message: "Would you like to save your token to local storage to use for next time (less secure)?",
             type: "confirm",
@@ -338,7 +338,7 @@ const askToSaveToken = async (token, login) => {
             if (ans.save) {
                 savedTokens.push(
                     {
-                        login: login, 
+                        login: login,
                         token: token
                     });
                 return await saveDataToFile(JSON.stringify(savedTokens));
@@ -350,8 +350,8 @@ const askToSaveToken = async (token, login) => {
 
 const swapSavedOrder = (token, savedTokens) => {
     savedTokens.forEach((identity, i) => {
-        if(token === identity.token){
-            if (i != 0){
+        if (token === identity.token) {
+            if (i != 0) {
                 const temp = savedTokens[0];
                 savedTokens[0] = savedTokens[i];
                 savedTokens[i] = temp;
@@ -366,13 +366,22 @@ const saveDataToFile = (data) => {
     return new Promise((res, rej) => {
 
         const configDir = path.join(process.argv[1], "..", "..", "config");
-        const savedTokensDir = path.join(configDir, "token.json");
-    
-        fs.writeFile(savedTokensDir, data, "utf-8", (err) => {
-            if (err){
-                rej("Couldn't save data to file");
+
+        fs.mkdir(configDir, { recursive: true }, (err) => {
+            if (err) {
+                console.log(err);
+                return rej(err);
             }
-            res(true);
+
+            const savedTokensDir = path.join(configDir, "token.json");
+
+            fs.writeFile(savedTokensDir, data, "utf-8", (err) => {
+                if (err) {
+                    console.log(err);
+                    rej("Couldn't save data to file");
+                }
+                res(true);
+            })
         })
     })
 }
@@ -383,11 +392,11 @@ const clearSavedTokens = async () => {
 }
 
 
-if(argv.d){
+if (argv.d) {
     clearSavedTokens();
 } else {
 
-    try{
+    try {
         mainScript();
     } catch (err) {
         console.log(err);
